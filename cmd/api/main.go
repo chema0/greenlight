@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -23,13 +23,13 @@ type config struct {
 		dsn          string
 		maxOpenConns int
 		maxIdleConns int
-		maxIdleTime  string
+		maxIdleTime  time.Duration
 	}
 }
 
 type application struct {
 	config config
-	logger *log.Logger
+	logger *slog.Logger
 	models data.Models
 }
 
@@ -43,18 +43,19 @@ func main() {
 
 	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
 	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
-	flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
+	flag.DurationVar(&cfg.db.maxIdleTime, "db-max-idle-time", 15*time.Minute, "PostgreSQL max connection idle time")
 
 	flag.Parse()
 
-	logger := log.New(os.Stdout, "", log.Ldate|log.Ltime)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 
 	db, err := openDB(cfg)
 	if err != nil {
-		logger.Fatal(err)
+		logger.Error(err.Error())
+		os.Exit(1)
 	}
 	defer db.Close()
-	logger.Printf("database connection pool established")
+	logger.Info("database connection pool established")
 
 	app := &application{
 		config: cfg,
@@ -70,9 +71,10 @@ func main() {
 		WriteTimeout: 10 * time.Second,
 	}
 
-	logger.Printf("starting %s server on %s", cfg.env, srv.Addr)
+	logger.Info("starting server", "addr", srv.Addr, "env", cfg.env)
 	err = srv.ListenAndServe()
-	logger.Fatal(err)
+	logger.Error(err.Error())
+	os.Exit(1)
 }
 
 func openDB(cfg config) (*sql.DB, error) {
@@ -85,12 +87,7 @@ func openDB(cfg config) (*sql.DB, error) {
 
 	db.SetMaxIdleConns(cfg.db.maxIdleConns)
 
-	duration, err := time.ParseDuration(cfg.db.maxIdleTime)
-	if err != nil {
-		return nil, err
-	}
-
-	db.SetConnMaxIdleTime(duration)
+	db.SetConnMaxIdleTime(cfg.db.maxIdleTime)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
