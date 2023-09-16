@@ -64,3 +64,9 @@ func Unique[T comparable](values []T) bool {
 
 	return len(values) == len(uniqueValues)
 }
+
+// InRange returns true if value is in the given range which means, greater than min and less
+// or equal than max
+func (v *Validator) InRange(value, min, max int) bool {
+	return value > min && value <= max
+}
