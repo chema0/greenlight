@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/chema0/greenlight/internal/validator"
+	"github.com/lib/pq"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -92,6 +93,15 @@ type UserModel struct {
 }
 
 func (m UserModel) Insert(user *User) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	tx, err := m.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
 	query := `
 		INSERT INTO users (name, email, password_hash, activated)
 		VALUES ($1, $2, $3, $4)
@@ -99,10 +109,7 @@ func (m UserModel) Insert(user *User) error {
 
 	args := []any{user.Name, user.Email, user.Password.hash, user.Activated}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	err := m.DB.QueryRowContext(ctx, query, args...).Scan(&user.ID, &user.CreatedAt, &user.Version)
+	err = tx.QueryRowContext(ctx, query, args...).Scan(&user.ID, &user.CreatedAt, &user.Version)
 	if err != nil {
 		switch {
 		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key"`:
@@ -110,6 +117,21 @@ func (m UserModel) Insert(user *User) error {
 		default:
 			return err
 		}
+	}
+
+	query = `
+		INSERT INTO users_permissions
+		SELECT $1, permissions.id FROM permissions WHERE permissions.code = ANY($2);`
+
+	args = []any{user.ID, pq.Array([]string{"movies:read"})}
+
+	_, err = tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
 	}
 
 	return nil
