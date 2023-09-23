@@ -1,12 +1,15 @@
-# Use postgres/example user/password credentials
 version: '3.1'
 services:
   db:
-    image: postgres
+    image: postgres:16.0
     restart: always
     volumes:
-      - ./docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d
+      - ./remote/setup/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "55432:5432"
     environment:
-      POSTGRES_PASSWORD: example
+      - db:/var/lib/postgresql/data
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+volumes:
+  db:
+    driver: local
