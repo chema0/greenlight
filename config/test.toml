@@ -1,0 +1,31 @@
+title = "Environment configuration file"
+
+[api]
+port = 50150
+
+[database]
+username = "greenlight"
+password = "greenlight"
+host = "localhost"
+port = 50151
+dbname = "greenlight"
+sslmode = "disable"
+dsn = "postgres://greenlight:greenlight@localhost:50151/greenlight?sslmode=disable"
+max_open_conns = 25
+max_idle_conns = 25
+max_idle_time = "5m"
+
+[limiter]
+rps = 2
+burst = 4
+enabled = true
+
+[smtp]
+host = "host"
+port = 25
+username = "username"
+password = "password"
+sender = "sender"
+
+[cors]
+trusted_origins = []

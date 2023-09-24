@@ -58,13 +58,13 @@ func (app *application) rateLimit(next http.Handler) http.Handler {
 	}()
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if app.config.limiter.enabled {
+		if app.config.Limiter.Enabled {
 			ip := realip.FromRequest(r)
 
 			mu.Lock()
 
 			if _, found := clients[ip]; !found {
-				clients[ip] = &client{limiter: rate.NewLimiter(2, 4)}
+				clients[ip] = &client{limiter: rate.NewLimiter(rate.Limit(app.config.Limiter.RPS), app.config.Limiter.Burst)}
 			}
 
 			clients[ip].lastSeen = time.Now()
@@ -184,7 +184,7 @@ func (app *application) enableCORS(next http.Handler) http.Handler {
 		origin := r.Header.Get("Origin")
 
 		if origin != "" {
-			if slices.Contains(app.config.cors.trustedOrigins, origin) {
+			if slices.Contains(app.config.CORS.TrustedOrigins, origin) {
 				w.Header().Set("Access-Control-Allow-Origin", origin)
 
 				if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {

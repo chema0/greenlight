@@ -44,6 +44,11 @@ db/migrations/up: confirm
 # QUALITY CONTROL
 # ==================================================================================== #
 
+## test: run tests
+.PHONY: test
+test:
+	go test ./...
+
 .PHONY: audit
 audit:
 	@echo 'Formatting code...'
@@ -93,6 +98,7 @@ production/deploy/api:
 	rsync -rP --delete ./migrations ${production_host}:~
 	rsync -P ./remote/production/api.service ${production_host}:~
 	rsync -P ./remote/production/Caddyfile ${production_host}:~
+	rsync -P ./config/prod.toml ${production_host}:~/config
 	ssh -t ${production_host} '\
 		migrate -path ~/migrations -database $$GREENLIGHT_DB_DSN up \
 		&& sudo mv ~/api.service /etc/systemd/system/ \

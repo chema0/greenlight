@@ -9,10 +9,10 @@ import (
 	"log/slog"
 	"os"
 	"runtime"
-	"strings"
 	"sync"
 	"time"
 
+	"github.com/chema0/greenlight/config"
 	"github.com/chema0/greenlight/internal/data"
 	"github.com/chema0/greenlight/internal/mailer"
 	"github.com/chema0/greenlight/internal/vcs"
@@ -23,34 +23,8 @@ var (
 	version = vcs.Version()
 )
 
-type config struct {
-	port int
-	env  string
-	db   struct {
-		dsn          string
-		maxOpenConns int
-		maxIdleConns int
-		maxIdleTime  time.Duration
-	}
-	limiter struct {
-		rps     float64
-		burst   int
-		enabled bool
-	}
-	smtp struct {
-		host     string
-		port     int
-		username string
-		password string
-		sender   string
-	}
-	cors struct {
-		trustedOrigins []string
-	}
-}
-
 type application struct {
-	config config
+	config config.Config
 	logger *slog.Logger
 	models data.Models
 	mailer mailer.Mailer
@@ -58,35 +32,37 @@ type application struct {
 }
 
 func main() {
-	var cfg config
+	var env string
 
-	flag.IntVar(&cfg.port, "port", 4000, "API server port")
-	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
+	// flag.IntVar(&cfg.port, "port", 4000, "API server port")
+	flag.StringVar(&env, "env", "development", "Environment (development|staging|production)")
 
-	flag.StringVar(&cfg.db.dsn, "db-dsn", "", "PostgreSQL DSN")
+	// flag.StringVar(&cfg.db.dsn, "db-dsn", "", "PostgreSQL DSN")
 
-	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
-	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
-	flag.DurationVar(&cfg.db.maxIdleTime, "db-max-idle-time", 15*time.Minute, "PostgreSQL max connection idle time")
+	// flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
+	// flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
+	// flag.DurationVar(&cfg.db.maxIdleTime, "db-max-idle-time", 15*time.Minute, "PostgreSQL max connection idle time")
 
-	flag.Float64Var(&cfg.limiter.rps, "limiter-rps", 2, "Rate limiter maximum requests per second")
-	flag.IntVar(&cfg.limiter.burst, "limiter-burst", 4, "Rate limiter maximum burst")
-	flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", true, "Enable rate limiter")
+	// flag.Float64Var(&cfg.limiter.rps, "limiter-rps", 2, "Rate limiter maximum requests per second")
+	// flag.IntVar(&cfg.limiter.burst, "limiter-burst", 4, "Rate limiter maximum burst")
+	// flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", true, "Enable rate limiter")
 
-	flag.StringVar(&cfg.smtp.host, "smtp-host", "sandbox.smtp.mailtrap.io", "SMTP host")
-	flag.IntVar(&cfg.smtp.port, "smtp-port", 25, "SMTP port")
-	flag.StringVar(&cfg.smtp.username, "smtp-username", "405d8fc6459cbc", "SMTP username")
-	flag.StringVar(&cfg.smtp.password, "smtp-password", "394388cf9ccdeb", "SMTP password")
-	flag.StringVar(&cfg.smtp.sender, "smtp-sender", "Greenlight <no-reply@greenlight.io>", "SMTP sender")
+	// flag.StringVar(&cfg.smtp.host, "smtp-host", "sandbox.smtp.mailtrap.io", "SMTP host")
+	// flag.IntVar(&cfg.smtp.port, "smtp-port", 25, "SMTP port")
+	// flag.StringVar(&cfg.smtp.username, "smtp-username", "405d8fc6459cbc", "SMTP username")
+	// flag.StringVar(&cfg.smtp.password, "smtp-password", "394388cf9ccdeb", "SMTP password")
+	// flag.StringVar(&cfg.smtp.sender, "smtp-sender", "Greenlight <no-reply@greenlight.io>", "SMTP sender")
 
-	flag.Func("cors-trusted-origins", "Trusted CORS origins (space separated)", func(s string) error {
-		cfg.cors.trustedOrigins = strings.Fields(s)
-		return nil
-	})
+	// flag.Func("cors-trusted-origins", "Trusted CORS origins (space separated)", func(s string) error {
+	// 	cfg.cors.trustedOrigins = strings.Fields(s)
+	// 	return nil
+	// })
 
 	displayVersion := flag.Bool("version", false, "Display version and exit")
 
 	flag.Parse()
+
+	cfg := config.NewConfig(env)
 
 	if *displayVersion {
 		fmt.Printf("Version:\t%s\n", version)
@@ -121,7 +97,7 @@ func main() {
 		config: cfg,
 		logger: logger,
 		models: data.NewModels(db),
-		mailer: mailer.New(cfg.smtp.host, cfg.smtp.port, cfg.smtp.username, cfg.smtp.password, cfg.smtp.sender),
+		mailer: mailer.New(cfg.SMTP.Host, cfg.SMTP.Port, cfg.SMTP.Username, cfg.SMTP.Password, cfg.SMTP.Sender),
 	}
 
 	err = app.serve()
@@ -131,17 +107,17 @@ func main() {
 	}
 }
 
-func openDB(cfg config) (*sql.DB, error) {
-	db, err := sql.Open("postgres", cfg.db.dsn)
+func openDB(cfg config.Config) (*sql.DB, error) {
+	db, err := sql.Open("postgres", cfg.DB.DSN)
 	if err != nil {
 		return nil, err
 	}
 
-	db.SetMaxOpenConns(cfg.db.maxOpenConns)
+	db.SetMaxOpenConns(cfg.DB.MaxOpenConns)
 
-	db.SetMaxIdleConns(cfg.db.maxIdleConns)
+	db.SetMaxIdleConns(cfg.DB.MaxIdleConns)
 
-	db.SetConnMaxIdleTime(cfg.db.maxIdleTime)
+	db.SetConnMaxIdleTime(cfg.DB.MaxIdleTime)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

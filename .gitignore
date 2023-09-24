@@ -26,3 +26,6 @@ go.work
 # Secrets
 .envrc
 .env
+config/prod.toml
+# config/development.toml
+# config/test.toml

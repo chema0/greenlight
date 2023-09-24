@@ -1,0 +1,17 @@
+version: '3.1'
+name: greenlight_test_db
+
+services:
+  db:
+    image: postgres:16.0
+    restart: always
+    volumes:
+      - ./remote/setup/init.test.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "50151:5432"
+    environment:
+      - db:/var/lib/postgresql/data
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+volumes:
+  db:
+    driver: local
